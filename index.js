@@ -149,8 +149,9 @@ const addRole = () => {
     db.query(sql, (err, roleData) => {
         if (err) throw error;
         roleData.forEach((department) => departmentArr.push(department.name));
-        
-        inquirer.prompt([
+    })
+
+      return inquirer.prompt([
             {
                 type: 'input',
                 name: 'addRoleName',
@@ -191,24 +192,32 @@ const addRole = () => {
         ])
         .then(response => {
             const responseDept = response.addRoleDepartment;
-            const sql = `INSERT INTO role VALUES (?, ?, ?)`;
-            const dept = `SELECT department.id
-                            FROM department
-                            WHERE name = ?`;
-            
-            const deptID = db.query(dept, responseDept, (err, result) => {
-                if (err) throw err;
-                return department.id;
-            });
-            console.log(deptID)
+            let deptID;
+            const sqlID = `SELECT * FROM department;`
 
-            // db.query(sql, response.addRoleName, response.addRoleSalary, , (err, results) => {
-            //     if (err) throw err;
-            //     console.log('New role added successfully!');
-            //     initialPrompt();
-            // })
+            // Query to find department ID
+            db.query(sqlID, (err, result) => {
+                if (err) throw err;
+
+                // Loops through departments to find the matching ID
+                result.forEach((department) => {
+                if (responseDept === department.name) {
+                    deptID = department.id;
+                }
+                })
+
+                const sql = `INSERT INTO role (title, salary, department_id) 
+                                VALUES (?,?,?)`;
+                const params = [response.addRoleName, response.addRoleSalary, deptID];
+                
+                // Query to add data to table
+                db.query(sql, params, (err, results) => {
+                    if (err) throw err;
+                    console.log('New role added successfully!');
+                    initialPrompt();
+                })
+            })
         });
-    });
 };
 
 // Updates employee role
