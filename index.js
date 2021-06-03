@@ -182,8 +182,8 @@ const addEmployee = () => {
       }
   ])
   .then(response => {
-      const role = response.roleSelect;
-      const mgr = response.mgrSelect;
+      const roleResponse = response.roleSelect;
+      const mgrResponse = response.mgrSelect;
       let roleId;
       let mgrId;
 
@@ -195,7 +195,7 @@ const addEmployee = () => {
 
           // Loops through roles to find matching id
           result.forEach((role) => {
-              if (role === role.title) {
+              if (roleResponse === role.title) {
                   roleId = role.id
               }
           })
@@ -209,7 +209,7 @@ const addEmployee = () => {
 
             // Loops through employees to find matching id
             result.forEach((employee) => {
-                if (employee === (employee.first_name + ' ' + employee.last_name)) {
+                if (mgrResponse === (employee.first_name + ' ' + employee.last_name)) {
                     mgrId = employee.id
                 }
             })
@@ -223,8 +223,7 @@ const addEmployee = () => {
           db.query(sql, params, (err, result) => {
             if (err) throw err;
             console.log("New employee added successfully!")
-            // initialPrompt();
-            console.table(result)
+             initialPrompt();
           })
       })    
   });
