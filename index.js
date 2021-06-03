@@ -1,16 +1,13 @@
 const inquirer = require('inquirer');
 const db = require('./db/connection');
 const cTable = require('console.table');
+const { registerPrompt } = require('inquirer');
 
 // Connect to database
 db.connect(err => {
     if (err) throw err;
     console.log('Connected to the database.');
 });
-
-const employeeArr = [];
-const roleArr = [];
-const departmentArr = [];
 
 // Initial options at start of application
 const initialPrompt = () => {
@@ -45,7 +42,7 @@ const initialPrompt = () => {
         } else if (answer === 'Add A Role') {
              addRole()
         } else if (answer === 'Add An Employee') {
-            // addEmployee()
+             addEmployee()
         } else if (answer === 'Update An Employee Role') {
             // updateRole()
         } else if (answer === 'Exit') {
@@ -56,14 +53,16 @@ const initialPrompt = () => {
 
 // Gets all employee data from database
 const viewAllEmployees = () => {
-    const sql = `SELECT employee.id, employee.first_name, employee.last_name,
-                role.title AS title,
-                department.name AS department, role.salary,
-                CONCAT(manager.first_name, ' ', manager.last_name) AS manager
-                FROM employee
-                LEFT JOIN (employee manager) ON manager.id = employee.manager_id
-                LEFT JOIN role on employee.role_id = role.id
-                LEFT JOIN department ON department.id = role.department_id;`
+    // const sql = `SELECT employee.id, employee.first_name, employee.last_name,
+    //             role.title AS title,
+    //             department.name AS department, role.salary,
+    //             CONCAT(manager.first_name, ' ', manager.last_name) AS manager
+    //             FROM employee
+    //             LEFT JOIN (employee manager) ON manager.id = employee.manager_id
+    //             LEFT JOIN role on employee.role_id = role.id
+    //             LEFT JOIN department ON department.id = role.department_id;`
+
+    const sql = `SELECT * FROM employee;`
 
     db.query(sql, (err, result) => {
         if (err) throw err;
@@ -110,10 +109,128 @@ const viewAllRoles = () => {
     });
 };
 
+const employeeArr = [];
+const roleArr = [];
+const departmentArr = [];
+
 // Adds new employee
 const addEmployee = () => {
+  const sqlR = `SELECT * FROM role;`;
+  const sqlE = `SELECT * FROM employee;`;
+  
+  // Gets all current roles and pushes to roleArr
+  db.query(sqlR, (err, roleData) => {
+      if (err) throw err;
+      roleData.forEach((role) => roleArr.push(role.title));
+      roleData.forEach
+  })
 
+  // Gets all current employees and pushes to employeeArr
+  db.query(sqlE, (err, empData) => {
+      if (err) throw err;
+      empData.forEach((employee) => employeeArr.push(employee.first_name + ' ' + employee.last_name));
+  })
+
+  return inquirer.prompt([
+      {
+          type: 'input',
+          name: 'addFirstName',
+          message: "Please enter new employee's first name.",
+          validate: firstNameInput => {
+              if (firstNameInput) {
+                  if (firstNameInput.charAt(0) === firstNameInput.charAt(0).toUpperCase()) {
+                      return true;
+                  } else {
+                      console.log("  Please capitalize the first name.");
+                      return false
+                  }
+              } else {
+                  console.log("  You must enter the first name of the new employee.")
+                  return false
+              }
+          }
+      },
+      {
+        type: 'input',
+        name: 'addLastName',
+        message: "Please enter new employee's last name.",
+        validate: lastNameInput => {
+            if (lastNameInput) {
+                if (lastNameInput.charAt(0) === lastNameInput.charAt(0).toUpperCase()) {
+                    return true;
+                } else {
+                    console.log("  Please capitalize the last name.");
+                    return false
+                }
+            } else {
+                console.log("  You must enter the last name of the new employee.")
+                return false
+            }
+        }
+      },
+      {
+          type: 'list',
+          name: 'roleSelect',
+          message: "Please select new employee's role.",
+          choices: roleArr
+      },
+      {
+          type: 'list',
+          name: 'mgrSelect',
+          message: "Please choose employee's manager.",
+          choices: employeeArr
+      }
+  ])
+  .then(response => {
+      const role = response.roleSelect;
+      const mgr = response.mgrSelect;
+      let roleId;
+      let mgrId;
+
+      const sqlRole = `SELECT * FROM role;`
+
+      // Query to find role id
+      db.query(sqlRole, (err, result) => {
+          if (err) throw err;
+
+          // Loops through roles to find matching id
+          result.forEach((role) => {
+              if (role === role.title) {
+                  roleId = role.id
+              }
+          })
+      
+
+          const sqlMgr = `SELECT * FROM employee;`
+
+          // Query to find employee id
+          db.query(sqlMgr, (err, result) => {
+            if (err) throw err;
+
+            // Loops through employees to find matching id
+            result.forEach((employee) => {
+                if (employee === (employee.first_name + ' ' + employee.last_name)) {
+                    mgrId = employee.id
+                }
+            })
+          })
+
+          const sql = `INSERT INTO employee (first_name, last_name, role_id, manager_id)
+                      VALUES (?,?,?,?)`;
+          const params = [response.addFirstName, response.addLastName, roleId, mgrId];
+      
+          // Query to add employee
+          db.query(sql, params, (err, result) => {
+            if (err) throw err;
+            console.log("New employee added successfully!")
+            // initialPrompt();
+            console.table(result)
+          })
+      })    
+  });
 };
+
+
 
 // Adds new department
 const addDepartment = () => {
@@ -146,6 +263,7 @@ const addDepartment = () => {
 const addRole = () => {
     const sql = `SELECT * FROM department;`
 
+    // Gets all current departments and pushes to deptArr
     db.query(sql, (err, roleData) => {
         if (err) throw error;
         roleData.forEach((department) => departmentArr.push(department.name));
