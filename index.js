@@ -24,6 +24,8 @@ const initialPrompt = () => {
               'Add A Role', 
               'Add An Employee', 
               'Update An Employee Role',
+              'Delete An Employee',
+              'Delete A Role',
               'Exit'
             ]
         }
@@ -34,17 +36,21 @@ const initialPrompt = () => {
         if (answer === 'View All Employees') {
             viewAllEmployees();
         } else if (answer === 'View All Departments') {
-             viewAllDepartments();
+            viewAllDepartments();
         } else if (answer === 'View All Roles') {
-             viewAllRoles();
+            viewAllRoles();
         } else if (answer === 'Add A Department') {
-             addDepartment()
+            addDepartment()
         } else if (answer === 'Add A Role') {
-             addRole()
+            addRole()
         } else if (answer === 'Add An Employee') {
-             addEmployee()
+            addEmployee()
         } else if (answer === 'Update An Employee Role') {
-            // updateRole()
+            updateRole()
+        } else if (answer === 'Delete An Employee') {
+            deleteEmployee()
+        } else if (answer === 'Delete A Role') {
+            deleteRole()
         } else if (answer === 'Exit') {
             db.end();
         }
@@ -122,7 +128,6 @@ const addEmployee = () => {
   db.query(sqlR, (err, roleData) => {
       if (err) throw err;
       roleData.forEach((role) => roleArr.push(role.title));
-      roleData.forEach
   })
 
 //   // Gets all current employees and pushes to employeeArr
@@ -253,6 +258,49 @@ const addEmployee = () => {
   });
 };
 
+// Deletes an employee
+const deleteEmployee = () => {
+    const employeeArr = [];
+    let employeeID;
+
+    // Query to get employees
+    const sqlEmployee = `SELECT * FROM employee;`
+    db.query(sqlEmployee, (err, empData) => {
+        if (err) throw err;
+        // Loop to get employee name and push to array
+        empData.forEach((employee) => employeeArr.push(employee.first_name + ' ' + employee.last_name));
+
+        return inquirer.prompt([
+            {
+                type: 'list',
+                name: 'empDelete',
+                message: "Which employee would you like to delete?",
+                choices: employeeArr
+            }
+        ])
+        .then(response => {
+            // Gets the first and last name from the employee response to use to find the id
+            let firstName = (response.empDelete).split(' ')[0];
+            let lastName = (response.empDelete).split(' ').pop();
+
+            // Loops through employees to find ID based on the first name and last name
+            empData.forEach((employee) => {
+                if ((firstName === employee.first_name) && (lastName === employee.last_name)) {
+                    employeeID = employee.id;
+                }
+            })
+
+            // Query to delete employee
+            const sql = `DELETE FROM employee WHERE id = ?;`
+            db.query(sql, employeeID, (err, result) => {
+                if (err) throw err;
+                console.log("Employee deleted.")
+                initialPrompt();
+            })
+        })
+    })
+};
+
 
 
 // Adds new department
@@ -280,6 +328,11 @@ const addDepartment = () => {
              initialPrompt();
          })
     });
+};
+
+// Delete a department
+const deleteDepartment = () => {
+    
 };
 
 // Adds new role
@@ -361,9 +414,117 @@ const addRole = () => {
         });
 };
 
+// Deletes a role
+const deleteRole = () => {
+    const roleArr = [];
+    let roleID;
+
+    // Query to get roles
+    const sqlRole = `SELECT * FROM role;`;
+
+    db.query(sqlRole, (err, response) => {
+        if (err) throw err;
+        response.forEach((role) => roleArr.push(role.title))
+
+        inquirer.prompt([
+            {
+                type: 'list',
+                name: 'roleSelect',
+                message: "Which role would you like to delete?",
+                choices: roleArr
+            }
+        ])
+        .then(result => {
+            const roleResponse = result.roleSelect;
+
+            // Loops through roles to find matching id
+            response.forEach((role) => {
+                if (roleResponse === role.title) {
+                    roleID = role.id
+                }
+            })
+
+            // Query to delete role
+            const sql = `DELETE FROM role WHERE id = ?;`
+            db.query(sql, roleID, (err, result) => {
+                if (err) throw err;
+                console.log("Role has been deleted")
+                initialPrompt();
+            })
+        })
+    })
+};
+
 // Updates employee role
 const updateRole = () => {
+    const employeeArr = [];
+    const roleArr = [];
+    let employeeID;
+    let roleID;
 
+    // Queries to get employees and roles and add to respective arrays
+    const sqlEmployee = `SELECT * FROM employee;`;
+    const sqlRole = `SELECT * FROM role;`;
+
+    // Employee query
+    db.query(sqlEmployee, (err, empData) => {
+        if (err) throw err;
+        empData.forEach((employee) => employeeArr.push(employee.first_name + ' ' + employee.last_name));
+
+        // Role query
+        db.query(sqlRole, (err, roleData) => {
+            if (err) throw err;
+            roleData.forEach((role) => roleArr.push(role.title));
+
+            inquirer.prompt([
+                {
+                    type: 'list',
+                    name: 'employeeSelect',
+                    message: "Which employee's role would you like to update?",
+                    choices: employeeArr
+                },
+                {
+                    type: 'list',
+                    name: 'roleSelect',
+                    message: "What would you like to change the employee's role to?",
+                    choices: roleArr
+                }
+            ])
+            .then(responseData => {
+                const roleResponse = responseData.roleSelect;
+                const employeeResponse = responseData.employeeSelect;
+    
+                // Gets the first and last name from the employee response to use to find the id
+                let firstName = employeeResponse.split(' ')[0];
+                let lastName = employeeResponse.split(' ').pop();
+    
+                // Loops through employees to find ID based on the first name and last name
+                empData.forEach((employee) => {
+                    if ((firstName === employee.first_name) && (lastName === employee.last_name)) {
+                        employeeID = employee.id;
+                    }
+                })
+                
+                // Loops through roles to find matching id
+                roleData.forEach((role) => {
+                    if (roleResponse === role.title) {
+                        roleID = role.id
+                    }
+                })
+
+                // Query to update employee's role
+                const sql = `UPDATE employee SET role_id = ?
+                            WHERE id = ?`;
+                const params = [roleID, employeeID];
+
+                db.query(sql, params, (err, result) => {
+                    if (err) throw err;
+                    console.log("Employee role updated successfully!");
+                    initialPrompt();
+                })
+            })
+        })          
+    })  
 };
 
 initialPrompt();
