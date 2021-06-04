@@ -19,13 +19,18 @@ const initialPrompt = () => {
             choices: [
               'View All Departments', 
               'View All Roles', 
-              'View All Employees', 
+              'View All Employees',
+              'View Employees By Manager',
+              'View Employees By Department',
+              'View Total Salary Cost by Department', 
               'Add A Department', 
               'Add A Role', 
               'Add An Employee', 
               'Update An Employee Role',
+              'Update An Employees Manager',
               'Delete An Employee',
               'Delete A Role',
+              'Delete A Department',
               'Exit'
             ]
         }
@@ -51,6 +56,16 @@ const initialPrompt = () => {
             deleteEmployee()
         } else if (answer === 'Delete A Role') {
             deleteRole()
+        } else if (answer === 'Delete A Department') {
+            deleteDepartment()
+        } else if (answer === 'Update An Employees Manager') {
+            updateManager()
+        } else if (answer === 'View Employees By Manager') {
+            viewEmployeesMgr()
+        } else if (answer === 'View Employees By Department') {
+            viewEmployeesDept()
+        } else if (answer === 'View Total Salary Cost by Department') {
+            salaryDept()
         } else if (answer === 'Exit') {
             db.end();
         }
@@ -115,13 +130,162 @@ const viewAllRoles = () => {
     });
 };
 
-const employeeArr = [];
-const roleArr = [];
-const departmentArr = [];
+// Views employees by manager
+const viewEmployeesMgr = () => {
+    const mgrArr = [];
+    
+    // Query to get employees
+    const sqlMgr = `SELECT * FROM employee;`;
+    db.query(sqlMgr, (err, response) => {
+        if (err) throw err;
+        response.forEach((employee) => mgrArr.push(employee.first_name + ' ' + employee.last_name));
+        inquirer.prompt([
+            {
+                type: 'list',
+                name: 'mgrData',
+                message: "Which manager would you like to see the employee's under?",
+                choices: mgrArr
+            }
+        ])
+        .then(result => {
+            let firstName = (result.mgrData).split(' ')[0];
+            let lastName = (result.mgrData).split(' ').pop();
+            let mgrID;
+            
+            // Gets mgr id
+            response.forEach((employee) => {
+                if ((firstName === employee.first_name) && (lastName === employee.last_name)) {
+                    mgrID = employee.id;
+                }
+            })
+
+            // Query to view data
+            const sql = `SELECT * FROM employee WHERE manager_id = ?;`;
+            db.query(sql, mgrID, (err, result) =>{
+                if (err) throw err;
+                console.log(``);
+                console.log(`                     ` + 'Employees By Manager');
+                console.log(`========================================================`)
+                console.table(result);
+                console.log(`========================================================`);
+                initialPrompt();
+            })
+        })
+    })
+};
+
+// View employees by department
+const viewEmployeesDept = () => {
+    const deptArr = [];
+    
+    // Query to get departments
+    const sqlDept = `SELECT * FROM department;`;
+    db.query(sqlDept, (err, response) => {
+        if (err) throw err;
+        response.forEach((department) => deptArr.push(department.name));
+        inquirer.prompt([
+            {
+                type: 'list',
+                name: 'deptData',
+                message: "Which department would you like to see the employee's under?",
+                choices: deptArr
+            }
+        ])
+        .then(result => {
+            const roleArr = [];
+            let deptID;
+            
+            
+            // Gets department id
+            response.forEach((department) => {
+                if (result.deptData === department.name) {
+                    deptID = department.id;
+                }
+            })
+
+            // Query to get roles associate with department ID
+            const sqlRole = `SELECT * FROM role WHERE department_id = ?;`;
+            db.query(sqlRole, deptID, (err, responseRole) => {
+                if (err) throw err;
+                // Loops through roles and pushes ids to array
+                responseRole.forEach((role) => roleArr.push(role.id));
+                console.log(roleArr)
+
+                // Query to get employees associate with the roles and display in table
+                const sqlEmp = `SELECT * FROM employee WHERE role_id = ? OR role_id = ?;`;
+                db.query(sqlEmp, roleArr, (err, responseEmp) => {
+                    if (err) throw err;
+                    console.log(``);
+                    console.log(`                     ` + 'Employees By Department');
+                    console.log(`========================================================`)
+                    console.table(responseEmp);
+                    console.log(`========================================================`);
+                    initialPrompt();
+                })
+            })
+        })
+    }) 
+};
+
+// View total salary cost of department
+const salaryDept = () => {
+    const deptArr = [];
+    
+    // Query to get departments
+    const sqlDept = `SELECT * FROM department;`;
+    db.query(sqlDept, (err, response) => {
+        if (err) throw err;
+        response.forEach((department) => deptArr.push(department.name));
+        inquirer.prompt([
+            {
+                type: 'list',
+                name: 'deptData',
+                message: "Which department would you like to see the total salary cost for?",
+                choices: deptArr
+            }
+        ])
+        .then(result => {
+            let deptID;
+            let roleArr = [];
+            
+            // Gets department id
+            response.forEach((department) => {
+                if (result.deptData === department.name) {
+                    deptID = department.id;
+                }
+            })
+
+            // Query to get roles associate with department ID
+            const sqlRole = `SELECT * FROM role WHERE department_id = ?;`;
+            db.query(sqlRole, deptID, (err, responseRole) => {
+                if (err) throw err;
+                // Loops through roles and pushes ids to array
+                responseRole.forEach((role) => roleArr.push(role.id));
+                
+                // Query to get total salary
+                const sql = `SELECT SUM(salary) AS total_salary_cost FROM role WHERE id = ? OR id = ?;`;
+                db.query(sql, roleArr, (err, result) => {
+                    if (err) throw err;
+                    console.log(``);
+                    console.log(`                     ` + 'Total Salary From Department');
+                    console.log(`========================================================`)
+                    console.table(result);
+                    console.log(`========================================================`);
+                    initialPrompt();
+                })
+
+                
+            })
+        })
+    })
+};
+
+
 
 // Adds new employee
 const addEmployee = () => {
   const sqlR = `SELECT * FROM role;`;
+  const roleArr = [];
 //   const sqlE = `SELECT * FROM employee;`;
   
   // Gets all current roles and pushes to roleArr
@@ -332,12 +496,46 @@ const addDepartment = () => {
 
 // Delete a department
 const deleteDepartment = () => {
-    
+    const departmentArr = [];
+    let deptID;
+    let sqlDept = `SELECT * FROM department;`;
+
+    // Gets all current departments and pushes to deptArr
+    db.query(sqlDept, (err, deptData) => {
+        if (err) throw err;
+        deptData.forEach((department) => departmentArr.push(department.name));
+
+        return inquirer.prompt([
+            {
+                type: 'list',
+                name: 'deleteDept',
+                message: "Which department would you like to delete?", 
+                choices: departmentArr
+            },
+        ])
+        .then(response => {
+            // Loops through departments to find the matching ID
+            deptData.forEach((department) => {
+                if (response.deleteDept === department.name) {
+                    deptID = department.id;
+                }
+            })
+            
+            // Query to delete the department
+            const sql = `DELETE FROM department WHERE id = ?`;
+            db.query(sql, deptID, (err, result) => {
+                if (err) throw err;
+                console.log('Department deleted.')
+                initialPrompt();
+                }) 
+        });
+    })
 };
 
 // Adds new role
 const addRole = () => {
     const sql = `SELECT * FROM department;`
+    const departmentArr = [];
 
     // Gets all current departments and pushes to deptArr
     db.query(sql, (err, roleData) => {
@@ -525,6 +723,73 @@ const updateRole = () => {
             })
         })          
     })  
+};
+
+// Update employee's manager
+const updateManager = () => {
+    const employeeArr = [];
+    
+    // Query to get employees
+    const sqlEmployee = `SELECT * FROM employee;`;
+
+    // Employee query
+    db.query(sqlEmployee, (err, empData) => {
+        if (err) throw err;
+        empData.forEach((employee) => employeeArr.push(employee.first_name + ' ' + employee.last_name));
+        inquirer.prompt([
+            {
+                type: 'list',
+                name: 'employeeSelect',
+                message: "Which employee's manager would you like to update?",
+                choices: employeeArr
+            },
+        ])
+        .then(empResponse => {
+            let nameSelect = empResponse.employeeSelect;
+            const mgrArr = employeeArr.filter(employee => employee !== nameSelect)
+            inquirer.prompt([
+                {
+                    type: 'list',
+                    name: 'mgrSelect',
+                    message: "Who is the employee's new manager?",
+                    choices: mgrArr
+                }
+            ])
+            .then(response => {
+                let employeeID;
+                let mgrID;
+
+                let firstNameEmp = (empResponse.employeeSelect).split(' ')[0];
+                let lastNameEmp = (empResponse.employeeSelect).split(' ').pop();
+                let firstNameMgr = (response.mgrSelect).split(' ')[0];
+                let lastNameMgr = (response.mgrSelect).split(' ').pop();
+
+                // Gets employee's id
+                empData.forEach((employee) => {
+                    if ((firstNameEmp === employee.first_name) && (lastNameEmp === employee.last_name)) {
+                        employeeID = employee.id;
+                    }
+                })
+
+                // Gets new manager's id
+                empData.forEach((employee) => {
+                    if ((firstNameMgr === employee.first_name) && (lastNameMgr === employee.last_name)) {
+                        mgrID = employee.id;
+                    }
+                })
+
+                // Query to update manager
+                const sql = `UPDATE employee SET manager_id = ?
+                            WHERE id = ?;`;
+                const params = [mgrID, employeeID]
+                db.query(sql, params, (err, result) => {
+                    if (err) throw err;
+                    console.log("Employee manager updated!")
+                    initialPrompt()
+                })
+            })
+        })
+    })           
 };
 
 initialPrompt();
