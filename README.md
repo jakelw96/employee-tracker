@@ -12,6 +12,7 @@ The employee tracker is a node-based application that allows you to create and m
 - [Contributing](#contributing)
 - [Tests](#tests)
 - [Questions](#questions)
+- [Demo-Video](#demo-video)
 
 ## Installation
 
@@ -44,6 +45,6 @@ Email Address: jake.lw96@gmail.com
 
 Email is preferred.
 
-## Demo Video
+## Demo-Video
 
 [Employee-Tracker-Demo](https://youtu.be/-0QqR-912XY)
