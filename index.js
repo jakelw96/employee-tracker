@@ -53,16 +53,16 @@ const initialPrompt = () => {
 
 // Gets all employee data from database
 const viewAllEmployees = () => {
-    // const sql = `SELECT employee.id, employee.first_name, employee.last_name,
-    //             role.title AS title,
-    //             department.name AS department, role.salary,
-    //             CONCAT(manager.first_name, ' ', manager.last_name) AS manager
-    //             FROM employee
-    //             LEFT JOIN (employee manager) ON manager.id = employee.manager_id
-    //             LEFT JOIN role on employee.role_id = role.id
-    //             LEFT JOIN department ON department.id = role.department_id;`
+    const sql = `SELECT employee.id, employee.first_name, employee.last_name,
+                role.title AS title,
+                department.name AS department, role.salary,
+                CONCAT(manager.first_name, ' ', manager.last_name) AS manager
+                FROM employee
+                LEFT JOIN (employee manager) ON manager.id = employee.manager_id
+                LEFT JOIN role on employee.role_id = role.id
+                LEFT JOIN department ON department.id = role.department_id;`
 
-    const sql = `SELECT * FROM employee;`
+    
 
     db.query(sql, (err, result) => {
         if (err) throw err;
@@ -116,7 +116,7 @@ const departmentArr = [];
 // Adds new employee
 const addEmployee = () => {
   const sqlR = `SELECT * FROM role;`;
-  const sqlE = `SELECT * FROM employee;`;
+//   const sqlE = `SELECT * FROM employee;`;
   
   // Gets all current roles and pushes to roleArr
   db.query(sqlR, (err, roleData) => {
@@ -125,11 +125,14 @@ const addEmployee = () => {
       roleData.forEach
   })
 
-  // Gets all current employees and pushes to employeeArr
-  db.query(sqlE, (err, empData) => {
-      if (err) throw err;
-      empData.forEach((employee) => employeeArr.push(employee.first_name + ' ' + employee.last_name));
-  })
+//   // Gets all current employees and pushes to employeeArr
+//   db.query(sqlE, (err, empData) => {
+//       if (err) throw err;
+      
+//       // Creates new mapped array to also include employee id 
+
+//       empData.forEach((employee) => employeeArr.push(employee.first_name + ' ' + employee.last_name));
+//   })
 
   return inquirer.prompt([
       {
@@ -174,58 +177,79 @@ const addEmployee = () => {
           message: "Please select new employee's role.",
           choices: roleArr
       },
-      {
-          type: 'list',
-          name: 'mgrSelect',
-          message: "Please choose employee's manager.",
-          choices: employeeArr
-      }
+    //   {
+    //       type: 'list',
+    //       name: 'mgrSelect',
+    //       message: "Please choose employee's manager.",
+    //       choices: employeeArr
+    //   }
   ])
   .then(response => {
+      
+      const mgrArr = [];
       const roleResponse = response.roleSelect;
-      const mgrResponse = response.mgrSelect;
       let roleId;
       let mgrId;
+      
+
 
       const sqlRole = `SELECT * FROM role;`
 
       // Query to find role id
       db.query(sqlRole, (err, result) => {
-          if (err) throw err;
+        if (err) throw err;
 
-          // Loops through roles to find matching id
-          result.forEach((role) => {
-              if (roleResponse === role.title) {
-                  roleId = role.id
-              }
+        // Loops through roles to find matching id
+        result.forEach((role) => {
+            if (roleResponse === role.title) {
+                roleId = role.id
+            }
           })
-      
 
-          const sqlMgr = `SELECT * FROM employee;`
-
-          // Query to find employee id
-          db.query(sqlMgr, (err, result) => {
+        // To get employee data to use for selection of employee's manager
+        sqlMgr = `SELECT * FROM employee;`;
+        db.query(sqlMgr, (err, mgrData) => {
             if (err) throw err;
+            const mgr = mgrData.map(({ first_name, last_name }) => 
+            ({ name: first_name + ' ' + last_name}));
 
-            // Loops through employees to find matching id
-            result.forEach((employee) => {
-                if (mgrResponse === (employee.first_name + ' ' + employee.last_name)) {
-                    mgrId = employee.id
+            // Mgr question
+            return inquirer.prompt([
+                {
+                    type: 'list',
+                    name: 'mgrSelect',
+                    message: "Please select new employee's manager.",
+                    choices: mgr
                 }
-            })
-          })
+            ])
+            .then(mgrResult => {
+                const mgrResponse = mgrResult.mgrSelect;
+                
+                // Gets the first and last name from the manager response to use to find the id
+                firstName = mgrResponse.split(' ')[0];
+                lastName = mgrResponse.split(' ').pop();
+                
 
-          const sql = `INSERT INTO employee (first_name, last_name, role_id, manager_id)
-                      VALUES (?,?,?,?)`;
-          const params = [response.addFirstName, response.addLastName, roleId, mgrId];
+                // Loops through employees to find ID based on the first name and last name
+                mgrData.forEach((employee) => {
+                    if ((firstName === employee.first_name) && (lastName === employee.last_name)) {
+                        mgrId = employee.id;
+                    }
+                })
+                
+                const sql = `INSERT INTO employee (first_name, last_name, role_id, manager_id)
+                            VALUES (?,?,?,?)`;
+                const params = [response.addFirstName, response.addLastName, roleId, mgrId];
       
-          // Query to add employee
-          db.query(sql, params, (err, result) => {
-            if (err) throw err;
-            console.log("New employee added successfully!")
-             initialPrompt();
-          })
-      })    
+                // Query to add employee
+                db.query(sql, params, (err, result) => {
+                    if (err) throw err;
+                    console.log("New employee added successfully!")
+                    initialPrompt();
+               })
+            })
+        })
+    })   
   });
 };
 
